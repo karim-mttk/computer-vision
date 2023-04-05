@@ -5,36 +5,55 @@ import time
 
 class poseDetector:
     def __init__(
-        self, mode=False, upBody=False, smooth=True, detectionCon=0.5, trackCon=0.5
+        self, mode=False, upBody=False, smooth=True, detectionCon=False, trackCon=0.5
     ):
         self.mode = mode
-        upBody = upBody
-        smooth = smooth
-        detectionCon = detectionCon
-        trackCon = trackCon
+        self.upBody = upBody
+        self.smooth = smooth
+        self.detectionCon = detectionCon
+        self.trackCon = trackCon
 
+        self.mpDraw = mp.solutions.drawing_utils
+        self.mpPose = mp.solutions.pose
+        self.pose = self.mpPose.Pose(
+            self.mode, self.upBody, self.smooth, self.detectionCon, self.trackCon
+        )
 
-mpDraw = mp.solutions.drawing_utils
-mpPose = mp.solutions.pose
-pose = mpPose.Pose()
+    def findPose(self, img, draw=True):
+        imgRGB = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        self.results = self.pose.process(imgRGB)
 
-if results.pose_landmarks:
-    mpDraw.draw_landmarks(img, results.pose_landmarks, mpPose.POSE_CONNECTIONS)
-    for id, lm in enumerate(results.pose_landmarks.landmark):
-        h, w, c = img.shape
-        print(id, lm)
-        cx, cy = int(lm.x * w), int(lm.y * h)
-        cv2.circle(img, (cx, cy), 10, (255, 0, 255), cv2.FILLED)
+        if self.results.pose_landmarks:
+            if draw:
+                self.mpDraw.draw_landmarks(
+                    img, self.results.pose_landmarks, self.mpPose.POSE_CONNECTIONS
+                )
+        return img
 
+    def findPosition(self, img, draw = True):
+        lmlist = []
+        if self.results.pose_landmarks:
+            for id, lm in enumerate(self.results.pose_landmarks.landmark):
+                h, w, c = img.shape
+                #print(id, lm)
+                cx, cy = int(lm.x * w), int(lm.y * h)
+                lmlist.append([id, cx, cy])
+                if draw:
+                    cv2.circle(img, (cx, cy), 10, (255, 0, 255), cv2.FILLED)
+        return lmlist
 
 def main():
     cap = cv2.VideoCapture("PoseVideos/5.mp4")
     pTime = 0
+    detector = poseDetector()
     while True:
         success, img = cap.read()
-        imgRGB = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        results = pose.process(imgRGB)
-        # print(results.pose_landmarks)
+        img = detector.findPose(img)
+        lmlist = detector.findPosition(img, draw=False)
+
+        print(lmlist[14])
+        #tracking the elbow with no.14 (the elbow will be on the left side of the screen)
+        cv2.circle(img, (lmlist[14][1], lmlist[14][2]), 15, (0, 0, 255), cv2.FILLED)
 
         cTime = time.time()
         fps = 1 / (cTime - pTime)
